@@ -13,7 +13,6 @@
         body {
             font-family: 'Inter', sans-serif;
         }
-        /* Estilo para o loader */
         .loader {
             border: 4px solid #f3f3f3;
             border-top: 4px solid #3498db;
@@ -40,7 +39,7 @@
             <!-- Formulário para adicionar nova cobrança -->
             <div class="mb-8 p-6 bg-white rounded-lg shadow-md">
                 <h2 class="text-2xl font-semibold mb-4">Adicionar Nova Cobrança</h2>
-                <form id="add-charge-form" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <form id="add-charge-form" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div>
                         <label for="nome" class="block text-sm font-medium text-gray-700 mb-1">Nome</label>
                         <input type="text" id="nome" required class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
@@ -49,15 +48,19 @@
                         <label for="telefone" class="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
                         <input type="tel" id="telefone" required class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
                     </div>
-                    <div>
+                     <div>
                         <label for="empresa" class="block text-sm font-medium text-gray-700 mb-1">Empresa</label>
                         <input type="text" id="empresa" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                     <div>
+                        <label for="valor" class="block text-sm font-medium text-gray-700 mb-1">Valor (R$)</label>
+                        <input type="number" id="valor" step="0.01" required class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ex: 50.00">
                     </div>
                      <div>
                         <label for="vencimento" class="block text-sm font-medium text-gray-700 mb-1">Data de Vencimento</label>
                         <input type="date" id="vencimento" required class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
                     </div>
-                    <div class="md:col-span-2 lg:col-span-4 text-right">
+                    <div class="md:col-span-2 lg:col-span-3 text-right">
                         <button type="submit" class="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out">
                             Adicionar Cobrança
                         </button>
@@ -68,6 +71,10 @@
             <!-- Tabela de Cobranças -->
             <div>
                 <h2 class="text-2xl font-semibold mb-4">Lista de Cobranças</h2>
+                 <!-- Barra de Pesquisa -->
+                <div class="mb-4">
+                    <input type="search" id="search-input" oninput="filterAndRenderTable()" placeholder="Pesquisar por nome, telefone ou empresa..." class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
                 <div id="loader-container" class="flex justify-center items-center py-8">
                      <div class="loader"></div>
                 </div>
@@ -79,6 +86,7 @@
                                 <th class="p-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider">Nome</th>
                                 <th class="p-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider">Telefone</th>
                                 <th class="p-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider">Empresa</th>
+                                <th class="p-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider">Valor</th>
                                 <th class="p-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider">Vencimento</th>
                                 <th class="p-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider">Status</th>
                                 <th class="p-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider">Ações</th>
@@ -102,100 +110,66 @@
         // --- CONFIGURAÇÃO E VARIÁVEIS GLOBAIS ---
         const AIRTABLE_API_KEY = 'patlwwBIHzXToryqC.2b535d0f8419e4a6727cd0ad06bf39447bf5e72bab74c05b1f3aa6b9998b12b5';
         const AIRTABLE_BASE_ID = 'appYVrreL1KMf7F3r';
-        // CORREÇÃO: Usando o ID da Tabela diretamente para evitar erros.
         const AIRTABLE_TABLE_ID = 'tblGa8WiHQUwyEong'; 
         const API_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_ID}`;
+        let allRecords = []; // Armazena todos os registros para a pesquisa
 
         // --- FUNÇÕES DE UTILIDADE ---
-
-        /**
-         * Mostra uma notificação (toast) na tela.
-         * @param {string} message - A mensagem a ser exibida.
-         * @param {string} type - 'success' (verde) ou 'error' (vermelho).
-         */
         function showToast(message, type = 'success') {
             const toast = document.getElementById('toast');
             const toastMessage = document.getElementById('toast-message');
-            
             toastMessage.textContent = message;
             toast.className = toast.className.replace(/bg-\w+-\d+/, type === 'success' ? 'bg-green-600' : 'bg-red-600');
-            
             toast.classList.remove('opacity-0');
             setTimeout(() => {
                 toast.classList.add('opacity-0');
             }, 3000);
         }
 
-        /**
-         * Mostra ou esconde o indicador de carregamento (loader).
-         * @param {boolean} show - True para mostrar, false para esconder.
-         */
         function toggleLoader(show) {
             const loader = document.getElementById('loader-container');
-            if (show) {
-                loader.style.display = 'flex';
-            } else {
-                loader.style.display = 'none';
-            }
+            loader.style.display = show ? 'flex' : 'none';
         }
         
-        /**
-         * Mostra uma mensagem de erro na área da tabela.
-         * @param {string} message - A mensagem de erro.
-         */
         function showErrorMessage(message) {
             const errorDiv = document.getElementById('error-message');
             errorDiv.textContent = message;
             errorDiv.classList.remove('hidden');
         }
 
-        /**
-         * Limpa a mensagem de erro.
-         */
         function clearErrorMessage() {
              const errorDiv = document.getElementById('error-message');
              errorDiv.classList.add('hidden');
         }
         
         // --- FUNÇÕES DA API DO AIRTABLE ---
-
-        /**
-         * Busca todos os registros da tabela no Airtable.
-         */
         async function fetchRecords() {
             toggleLoader(true);
             clearErrorMessage();
-            const tableBody = document.getElementById('charges-table-body');
-            tableBody.innerHTML = ''; // Limpa a tabela antes de carregar
-
+            
             try {
                 const response = await fetch(API_URL, {
-                    headers: {
-                        'Authorization': `Bearer ${AIRTABLE_API_KEY}`
-                    }
+                    headers: { 'Authorization': `Bearer ${AIRTABLE_API_KEY}` }
                 });
 
                 if (!response.ok) {
                     const errorData = await response.json();
-                    throw new Error(errorData.error.message || `Erro ${response.status}: Falha ao buscar dados.`);
+                    throw new Error(errorData.error.message || `Erro ${response.status}`);
                 }
 
                 const data = await response.json();
-                renderTable(data.records);
+                allRecords = data.records;
+                filterAndRenderTable();
 
             } catch (error) {
                 console.error('Erro ao buscar registros:', error);
-                showErrorMessage(`Erro ao carregar dados: ${error.message}. Verifique suas configurações e a conexão.`);
-                showToast('Falha ao carregar dados. Verifique o console.', 'error');
+                showErrorMessage(`Erro ao carregar dados: ${error.message}.`);
+                showToast('Falha ao carregar dados.', 'error');
             } finally {
                 toggleLoader(false);
             }
         }
 
-        /**
-         * Adiciona um novo registro no Airtable.
-         * @param {object} recordData - Os dados do novo registro.
-         */
         async function createRecord(recordData) {
             try {
                 const response = await fetch(API_URL, {
@@ -204,18 +178,16 @@
                         'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({
-                        fields: recordData
-                    })
+                    body: JSON.stringify({ fields: recordData })
                 });
                 
                 if (!response.ok) {
                     const errorData = await response.json();
-                    throw new Error(errorData.error.message || `Erro ${response.status}: Falha ao criar registro.`);
+                    throw new Error(errorData.error.message || `Erro ${response.status}`);
                 }
 
                 showToast('Cobrança adicionada com sucesso!', 'success');
-                fetchRecords(); // Recarrega a tabela para mostrar o novo item
+                fetchRecords();
                 document.getElementById('add-charge-form').reset();
 
             } catch (error) {
@@ -224,11 +196,6 @@
             }
         }
 
-        /**
-         * Atualiza o status de um registro existente.
-         * @param {string} recordId - O ID do registro a ser atualizado.
-         * @param {string} newStatus - O novo status ('Pago' ou 'Não Pago').
-         */
         async function updateRecordStatus(recordId, newStatus) {
             const url = `${API_URL}/${recordId}`;
             try {
@@ -238,16 +205,12 @@
                         'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({
-                        fields: {
-                            'Status': newStatus
-                        }
-                    })
+                    body: JSON.stringify({ fields: { 'Status': newStatus } })
                 });
 
                  if (!response.ok) {
                     const errorData = await response.json();
-                    throw new Error(errorData.error.message || `Erro ${response.status}: Falha ao atualizar.`);
+                    throw new Error(errorData.error.message || `Erro ${response.status}`);
                 }
                 
                 showToast('Status atualizado com sucesso!', 'success');
@@ -259,30 +222,21 @@
             }
         }
 
-        /**
-         * Deleta um registro do Airtable.
-         * @param {string} recordId - O ID do registro a ser deletado.
-         */
         async function deleteRecord(recordId) {
-             if (!confirm('Tem certeza que deseja excluir esta cobrança?')) {
-                return;
-            }
             const url = `${API_URL}/${recordId}`;
             try {
                 const response = await fetch(url, {
                     method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${AIRTABLE_API_KEY}`
-                    }
+                    headers: { 'Authorization': `Bearer ${AIRTABLE_API_KEY}` }
                 });
 
                 if (!response.ok) {
                     const errorData = await response.json();
-                    throw new Error(errorData.error.message || `Erro ${response.status}: Falha ao deletar.`);
+                    throw new Error(errorData.error.message || `Erro ${response.status}`);
                 }
                 
                 showToast('Cobrança excluída com sucesso!', 'success');
-                fetchRecords(); // Recarrega a tabela
+                fetchRecords();
 
             } catch (error) {
                 console.error('Erro ao deletar registro:', error);
@@ -291,17 +245,29 @@
         }
 
         // --- RENDERIZAÇÃO E EVENTOS ---
+        function filterAndRenderTable() {
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+            
+            const filteredRecords = allRecords.filter(record => {
+                const fields = record.fields;
+                const nome = (fields.Nome || '').toLowerCase();
+                const telefone = (fields.Telefone || '').toLowerCase();
+                const empresa = (fields.Empresa || '').toLowerCase();
 
-        /**
-         * Renderiza os dados na tabela HTML.
-         * @param {Array} records - A lista de registros do Airtable.
-         */
+                return nome.includes(searchTerm) || 
+                       telefone.includes(searchTerm) || 
+                       empresa.includes(searchTerm);
+            });
+
+            renderTable(filteredRecords);
+        }
+        
         function renderTable(records) {
             const tableBody = document.getElementById('charges-table-body');
-            tableBody.innerHTML = ''; // Limpa a tabela
+            tableBody.innerHTML = '';
 
             if(records.length === 0){
-                tableBody.innerHTML = `<tr><td colspan="6" class="text-center p-4 text-gray-500">Nenhuma cobrança encontrada.</td></tr>`;
+                tableBody.innerHTML = `<tr><td colspan="7" class="text-center p-4 text-gray-500">Nenhuma cobrança encontrada.</td></tr>`;
                 return;
             }
 
@@ -309,6 +275,8 @@
                 const fields = record.fields;
                 const dataVencimento = new Date(fields.Vencimento + 'T00:00:00-03:00'); 
                 const dataFormatada = dataVencimento.toLocaleDateString('pt-BR');
+                
+                const valorFormatado = (fields.Valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
                 const row = document.createElement('tr');
                 row.className = 'hover:bg-gray-50';
@@ -316,6 +284,7 @@
                     <td class="p-4 whitespace-nowrap">${fields.Nome || ''}</td>
                     <td class="p-4 whitespace-nowrap">${fields.Telefone || ''}</td>
                     <td class="p-4 whitespace-nowrap">${fields.Empresa || ''}</td>
+                    <td class="p-4 whitespace-nowrap">${valorFormatado}</td>
                     <td class="p-4 whitespace-nowrap">${dataFormatada}</td>
                     <td class="p-4 whitespace-nowrap">
                         <select onchange="updateRecordStatus('${record.id}', this.value)" class="p-1 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 ${fields.Status === 'Pago' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
@@ -332,7 +301,6 @@
         }
 
         // --- INICIALIZAÇÃO ---
-
         document.addEventListener('DOMContentLoaded', () => {
             fetchRecords();
 
@@ -344,14 +312,15 @@
                     'Nome': document.getElementById('nome').value,
                     'Telefone': document.getElementById('telefone').value,
                     'Empresa': document.getElementById('empresa').value,
+                    'Valor': parseFloat(document.getElementById('valor').value),
                     'Vencimento': document.getElementById('vencimento').value,
-                    'Status': 'Não Pago' // Status padrão para novas cobranças
+                    'Status': 'Não Pago'
                 };
 
                 createRecord(newRecord);
             });
         });
-
     </script>
 </body>
 </html>
+
